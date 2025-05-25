@@ -1,5 +1,5 @@
 
-import { getImagesByQuery } from './js/pixabay-api.js';
+import { getImagesByQuery, perPage } from './js/pixabay-api.js';
 import {
   createGallery,
   clearGallery,
@@ -10,64 +10,64 @@ import {
   loadMore
 }
   from './js/render-functions.js';
-  import iziToast from 'izitoast';
-  import 'izitoast/dist/css/iziToast.min.css';
+import iziToast from 'izitoast';
+import 'izitoast/dist/css/iziToast.min.css';
 
 
 const form = document.querySelector('.form');
 let currentPage = 1;
 let query = "";
-let totalPages = 5;
-
+let totalHitsGlobal = 0; 
 
 loadMore.addEventListener('click', onLoad);
 
-function onLoad() {
+async function onLoad() {
   currentPage += 1;
 
   showLoader();
 
-  getImagesByQuery(query, currentPage)
-    .then(images => {
-      createGallery(images);
-      if (currentPage >= totalPages) {
-        hideLoadMoreButton();
-        iziToast.info({
-          message: "We're sorry, but you've reached the end of search results.",
-          position: 'topRight',
-        });
-      }
-    })
-    .catch(error => {
-      console.error(error);
-      iziToast.error({
-        message: 'Something went wrong. Please try again later.',
-        position: 'topCenter',
-      });
-    })
-    .finally(() => {
-      hideLoader();
+  try {
+    const { hits } = await getImagesByQuery(query, currentPage);
+    createGallery(hits);
 
-      const card = document.querySelector('.gallery-item');
-      if (card) {
-        const cardHeight = card.getBoundingClientRect().height;
-        window.scrollBy({
-          top: cardHeight * 2,
-          behavior: 'smooth',
-        });
-      }
+    const totalLoaded = currentPage * perPage;
+
+    if (totalLoaded >= totalHitsGlobal) {
+      hideLoadMoreButton();
+      iziToast.info({
+        message: "We're sorry, but you've reached the end of search results.",
+        position: 'topRight',
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    iziToast.error({
+      message: 'Something went wrong. Please try again later.',
+      position: 'topCenter',
     });
+  } finally {
+    hideLoader();
+
+    const card = document.querySelector('.gallery-item');
+    if (card) {
+      const cardHeight = card.getBoundingClientRect().height;
+      window.scrollBy({
+        top: cardHeight * 2,
+        behavior: 'smooth',
+      });
+    };
+  }
 }
 
+// submit
 form.addEventListener('submit', onFormSubmit);
 
-function onFormSubmit(event) {
+async function onFormSubmit(event) {
   event.preventDefault();
-  console.log('Форма відправлена');
 
   hideLoadMoreButton()
 
-  query = event.target.elements['search-text'].value.trim();  // зберігаємо значення з інпута
+  query = event.target.elements.searchText.value.trim();  // зберігаємо значення з інпута
 
   if (query === '') {
     iziToast.warning({
@@ -82,30 +82,37 @@ function onFormSubmit(event) {
   clearGallery();
   showLoader();
 
+  try {
+    const { hits, totalHits } = await getImagesByQuery(query, currentPage);
 
-  getImagesByQuery(query, currentPage)
-    .then(images => {
-      if (images.length === 0) {
-        iziToast.error({
-          message: 'Sorry, there are no images matching your search query. Please, try again!',
-          position: 'topRight',
-        });
-        return;
-      }
+    totalHitsGlobal = totalHits;
 
-      createGallery(images);
+    if (totalHits === 0 || hits.length === 0) {
+  iziToast.error({
+    title: 'Error',
+    message: 'Sorry, there are no images matching your search query. Please try again!',
+  });
+  return;
+}
 
-    }).catch(error => {
-      console.error(error);
-      iziToast.error({
-        message: 'Something went wrong. Please try again later.',
-        position: 'topCenter',
-      });
-    })
-    .finally(() => {
-      hideLoader();
+    createGallery(hits);
+
+    const totalLoaded = currentPage * perPage;
+    if (totalLoaded < totalHitsGlobal) {
       showLoadMoreButton();
+    } else {
+      hideLoadMoreButton();
+    }
+
+  } catch (error) {
+    console.error(error);
+    iziToast.error({
+      message: 'Something went wrong. Please try again later.',
+      position: 'topCenter',
     });
+  } finally {
+    hideLoader();
+  };
 
   event.target.reset();
 }

@@ -5,7 +5,7 @@ import '../css/styles.css';
 
   const BASE_URL = 'https://pixabay.com/api/';
   const API_KEY = '50282223-5a409711ad86c04843247122a';
-  const perPage = 15;
+  export const perPage = 15;
 
 export async function getImagesByQuery(query, page) {
   console.log(page);
@@ -21,7 +21,10 @@ export async function getImagesByQuery(query, page) {
       safesearch: true,
     }
    })
-  return response.data.hits;           // Повна відповідь (великий об'єкт)
+  return { 
+    hits: response.data.hits, 
+    totalHits: response.data.totalHits 
+  };                                              // Повна відповідь (великий об'єкт)
                                                    // response.data - Дані від API (об'єкт з total, totalHits, hits)
                                                   // response.data.hits - Масив об'єктів з картинками
 }
